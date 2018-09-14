@@ -1,13 +1,14 @@
 from skimage.transform import resize
+from configs import FLAGS
 from PIL import ImageEnhance
 
-def upsample(img, img_size_ori=101, img_size_target=128):
+def upsample(img, img_size_ori=FLAGS.img_size_ori, img_size_target=FLAGS.img_size_target):
     if img_size_ori == img_size_target:
         return img
     return resize(img, (img_size_target, img_size_target), mode='constant', preserve_range=True)
 
 
-def downsample(img, img_size_ori=101, img_size_target=128):
+def downsample(img, img_size_ori=FLAGS.img_size_ori, img_size_target=FLAGS.img_size_target):
     if img_size_ori == img_size_target:
         return img
     return resize(img, (img_size_ori, img_size_ori), mode='constant', preserve_range=True)
