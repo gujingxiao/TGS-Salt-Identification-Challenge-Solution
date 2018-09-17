@@ -12,7 +12,7 @@ from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 from IOU_matrix import my_iou_metric, iou_metric_batch, predict_result
 from rle_code import rle_encode
 from loss_functions import weighted_bce_dice_loss
-from image_preprocess import upsample, downsample
+from image_preprocess import upsample, downsample, pad_reflect, unpad_reflect
 from models import cov_to_class, build_model
 from configs import FLAGS
 
@@ -24,9 +24,11 @@ depths_df = pd.read_csv("../data/depths.csv", index_col="id")
 train_df = train_df.join(depths_df)
 test_df = depths_df[~depths_df.index.isin(train_df.index)]
 
-train_df["images"] = [np.array(load_img("../data/train/images/{}.png".format(idx), color_mode = "grayscale")) / 255 for idx in tqdm_notebook(train_df.index)]
-train_df["masks"] = [np.array(load_img("../data/train/masks/{}.png".format(idx), color_mode = "grayscale")) / 255 for idx in tqdm_notebook(train_df.index)]
-train_df["coverage"] = train_df.masks.map(np.sum) / pow(FLAGS.img_size_ori, 2)
+train_df["images"] = [pad_reflect(np.array(load_img("../data/train/images/{}.png".format(idx), color_mode = "grayscale")), 14, 13, 14, 13) / 255
+                      for idx in tqdm_notebook(train_df.index)]
+train_df["masks"] = [pad_reflect(np.array(load_img("../data/train/masks/{}.png".format(idx), color_mode = "grayscale")), 14, 13, 14, 13) / 255
+                     for idx in tqdm_notebook(train_df.index)]
+train_df["coverage"] = train_df.masks.map(np.sum) / pow(FLAGS.img_size_target, 2)
 train_df["coverage_class"] = train_df.coverage.map(cov_to_class)
 
 
@@ -72,8 +74,10 @@ history = model.fit(x_train, y_train, validation_data=[x_valid, y_valid], epochs
 model.load_weights("../models/" + FLAGS.model_name)
 
 preds_valid = predict_result(model,x_valid,FLAGS.img_size_target)
-preds_valid2 = np.array([downsample(x, FLAGS.img_size_ori, FLAGS.img_size_target) for x in preds_valid])
-y_valid2 = np.array([downsample(x, FLAGS.img_size_ori, FLAGS.img_size_target) for x in y_valid])
+#preds_valid2 = np.array([downsample(x, FLAGS.img_size_ori, FLAGS.img_size_target) for x in preds_valid])
+#y_valid2 = np.array([downsample(x, FLAGS.img_size_ori, FLAGS.img_size_target) for x in y_valid])
+preds_valid2 = np.array([unpad_reflect(x, 14, 14, FLAGS.img_size_ori, FLAGS.img_size_ori) for x in preds_valid])
+y_valid2 = np.array([unpad_reflect(x, 14, 14, FLAGS.img_size_ori, FLAGS.img_size_ori) for x in y_valid])
 
 thresholds = np.linspace(0.3, 0.7, 41)
 ious = np.array([iou_metric_batch(y_valid2, np.int32(preds_valid2 > threshold)) for threshold in tqdm_notebook(thresholds)])
@@ -88,13 +92,17 @@ print("Best threshold: ", threshold_best, "Best Val IOU: ", iou_best)
 #-6  Generate submission
 """
 if FLAGS.generate_submission is True:
-    x_test = np.array([upsample(np.array(load_img("../data/test/images/{}.png".format(idx), color_mode = "grayscale"))) / 255
-                       for idx in tqdm_notebook(test_df.index)]).reshape(-1, FLAGS.img_size_target, FLAGS.img_size_target, 1)
+    x_test = np.array([pad_reflect(np.array(load_img("../data/test/images/{}.png".format(idx), color_mode="grayscale")),
+                                   14, 13, 14, 13) / 255
+                       for idx in tqdm_notebook(test_df.index)]).reshape(-1, FLAGS.img_size_target,
+                                                                         FLAGS.img_size_target, 1)
 
     preds_test = predict_result(model, x_test, FLAGS.img_size_target)
-    pred_dict = {idx: rle_encode(np.round(downsample(preds_test[i]) > threshold_best)) for i, idx in enumerate(tqdm_notebook(test_df.index.values))}
+    pred_dict = {idx: rle_encode(
+        np.round(unpad_reflect(preds_test[i] > threshold_best, 14, 14, FLAGS.img_size_ori, FLAGS.img_size_ori)))
+                 for i, idx in enumerate(tqdm_notebook(test_df.index.values))}
 
-    sub = pd.DataFrame.from_dict(pred_dict,orient='index')
+    sub = pd.DataFrame.from_dict(pred_dict, orient='index')
     sub.index.names = ['id']
     sub.columns = ['rle_mask']
     sub.to_csv('../submission/' + FLAGS.submission_name)
