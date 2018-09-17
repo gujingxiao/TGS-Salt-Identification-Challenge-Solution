@@ -14,7 +14,8 @@ flags.DEFINE_integer("random_seed", 1234, "Number of random seed")
 flags.DEFINE_float("dropout", 0.2, "The ratio of dropout")
 flags.DEFINE_float("val_ratio", 0.1, "The ratio of train/validation split")
 flags.DEFINE_bool("shuffle", True, "Shuffle the dataset every epoch")
-flags.DEFINE_bool("augmentation", False, "Do data augmentation")
+flags.DEFINE_bool("augmentation", True, "Do data augmentation")
+flags.DEFINE_bool("random_crop", True, "Do data random cropping")
 
 # Network flags
 flags.DEFINE_integer("encoder_type", 1, "1 - simResnet, 2 - Resnet18, 3 - Resnet34")
@@ -24,8 +25,8 @@ flags.DEFINE_integer("decoder_type", 1, "1 - simResnet, 2 - Resnet18, 3 - Resnet
 flags.DEFINE_string("optimizer", "Adam", "Type of used optimizer")
 flags.DEFINE_float("min_lr", 0.00001, "Minimum of learning rate")
 flags.DEFINE_float("factor", 0.4, "Value of recuding factor")
-flags.DEFINE_integer("factor_patience", 5, "Multiply factor in every factor patience")
-flags.DEFINE_integer("final_patience", 15, "Stop training after final patience")
+flags.DEFINE_integer("factor_patience", 4, "Multiply factor in every factor patience")
+flags.DEFINE_integer("final_patience", 12, "Stop training after final patience")
 
 # Model flags
 flags.DEFINE_string("model_name", "unet_best.model", "Name of snapshots")
