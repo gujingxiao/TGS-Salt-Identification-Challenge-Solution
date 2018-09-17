@@ -6,7 +6,38 @@ from skimage.color import gray2rgb
 import matplotlib.pyplot as plt
 import pandas as pd
 from tqdm import tqdm
-from rle_code import rle_decode, rle_encode
+
+"""
+used for converting the decoded image to rle mask
+
+"""
+def rle_encode(im):
+    '''
+    im: numpy array, 1 - mask, 0 - background
+    Returns run length as string formated
+    '''
+    pixels = im.flatten()
+    pixels = np.concatenate([[0], pixels, [0]])
+    runs = np.where(pixels[1:] != pixels[:-1])[0] + 1
+    runs[1::2] -= runs[::2]
+    return ' '.join(str(x) for x in runs)
+
+def rle_decode(rle_mask):
+    '''
+    rle_mask: run-length as string formated (start length)
+    shape: (height,width) of array to return
+    Returns numpy array, 1 - mask, 0 - background
+
+    '''
+    s = rle_mask.split()
+    starts, lengths = [np.asarray(x, dtype=int) for x in (s[0:][::2], s[1:][::2])]
+    starts -= 1
+    ends = starts + lengths
+    img = np.zeros(101*101, dtype=np.uint8)
+    for lo, hi in zip(starts, ends):
+        img[lo:hi] = 1
+    return img.reshape(101,101)
+
 
 def crf(original_image, mask_img):
     # Converting annotated image to RGB if it is Gray scale
@@ -39,9 +70,8 @@ def crf(original_image, mask_img):
 """
 Applying CRF on the predicted mask 
 """
-df = pd.read_csv('../submission/submission_2.csv')
+df = pd.read_csv('../submission/vote_correction.csv')
 test_path = '../data/test/images/'
-
 
 for i in tqdm(range(df.shape[0])):
     if str(df.loc[i,'rle_mask'])!=str(np.nan):
@@ -50,5 +80,5 @@ for i in tqdm(range(df.shape[0])):
         crf_output = crf(orig_img,decoded_mask)
         df.loc[i,'rle_mask'] = rle_encode(crf_output)
 
-df.to_csv('../submission/crf_correction.csv',index=False)
+df.to_csv('../submission/crf_vote_correction.csv',index=False)
 
